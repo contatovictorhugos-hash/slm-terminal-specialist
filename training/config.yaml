@@ -1,0 +1,30 @@
+# Configuracao de Fine-Tuning LoRA via MLX-LM no Apple Silicon
+
+# 1. Modelo Base do Hugging Face
+model: "Qwen/Qwen2.5-Coder-1.5B-Instruct"
+
+# 2. Diretorio do Dataset (contendo train.jsonl e valid.jsonl)
+data: "dataset/data"
+
+# 3. Parametros do Fine-Tuning
+train: true
+fine_tune_type: "lora"
+optimizer: "adamw"
+
+# 4. Hiperparametros de Otimizacao
+num_layers: 16
+batch_size: 4
+iters: 600
+learning_rate: 1.0e-4
+
+# 5. Foco no Alvo (calcula a perda apenas na resposta do assistente)
+mask_prompt: true
+
+# 6. Frequencia de Relatorios e Checkpoints
+steps_per_report: 10
+steps_per_eval: 50
+save_every: 100
+
+# 7. Comprimento Maximo de Tokens e Diretorio dos Adaptadores
+max_seq_length: 512
+adapter_path: "adapters"

@@ -1,0 +1,28 @@
+# Python / Ambientes virtuais
+.venv/
+env/
+venv/
+__pycache__/
+*.py[cod]
+
+# Arquivos de ambiente e segredos
+.env
+*.key
+
+# Modelos, adaptadores e checkpoints (pesados)
+adapters/
+models/
+*.gguf
+*.bin
+*.safetensors
+
+# Dados intermediários de cache
+.cache/
+data/raw/
+
+# Arquivos de sistema operacional
+.DS_Store
+*.DS_Store
+._*
+.Spotlight-V100
+.Trashes
