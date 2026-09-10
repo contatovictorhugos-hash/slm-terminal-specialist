@@ -85,7 +85,7 @@ slm-terminal-specialist/
 
 ### Passo 1: Clonar o Repositorio
 ```bash
-git clone https://github.com/SEU_USUARIO/slm-terminal-specialist.git
+git clone https://github.com/contatovictorhugos-hash/slm-terminal-specialist.git
 cd slm-terminal-specialist
 ```
 
