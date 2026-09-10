@@ -1,7 +1,7 @@
 # Projeto: SLM Especialista em Terminal & Automação CLI (NL ➔ Shell)
 
 > **Documento de Arquitetura Técnica, Pipeline e Fronteiras do Sistema**  
-> *Autor:* Marcio Hugo  
+> *Autor:* Victor Moreira  
 > *Ambiente Alvo:* macOS (Apple Silicon) + Terminal ZSH  
 
 ---
