@@ -1,18 +1,23 @@
-.PHONY: help install validate generate train fuse deploy benchmark clean
+.PHONY: help install validate generate generate-powershell train fuse deploy benchmark clean
 
 PYTHON ?= .venv/bin/python
 PIP ?= .venv/bin/pip
 
+OS ?= PowerShell
+ADD ?= 150
+DELAY ?= 10
+
 help:
 	@echo "Comandos disponiveis para SLM Especialista em Terminal:"
-	@echo "  make install    - Instala as dependencias do projeto no .venv"
-	@echo "  make validate   - Executa a auditoria de integridade do dataset"
-	@echo "  make generate   - Executa o gerador de dataset sintetico com Gemini API"
-	@echo "  make train      - Inicia o treinamento LoRA no Apple Silicon via MLX-LM"
-	@echo "  make fuse       - Funde os adaptadores LoRA ao modelo base"
-	@echo "  make deploy     - Cria o modelo localmente no Ollama via Modelfile"
-	@echo "  make benchmark  - Executa a suite de benchmark com assercoes de estado em sandbox"
-	@echo "  make clean      - Remove caches e arquivos temporarios"
+	@echo "  make install             - Instala as dependencias do projeto no .venv"
+	@echo "  make validate            - Executa a auditoria de integridade do dataset"
+	@echo "  make generate            - Sintetiza registros adicionais (padrao: OS=$(OS) ADD=$(ADD) DELAY=$(DELAY))"
+	@echo "  make generate-powershell - Atalho direto para sintese focada em PowerShell (150 registros)"
+	@echo "  make train               - Inicia o treinamento LoRA no Apple Silicon via MLX-LM"
+	@echo "  make fuse                - Funde os adaptadores LoRA ao modelo base"
+	@echo "  make deploy              - Cria o modelo localmente no Ollama via Modelfile"
+	@echo "  make benchmark           - Executa a suite de benchmark com assercoes de estado em sandbox"
+	@echo "  make clean               - Remove caches e arquivos temporarios"
 
 install:
 	$(PIP) install -r requirements.txt
@@ -21,7 +26,10 @@ validate:
 	$(PYTHON) dataset/validate_dataset.py
 
 generate:
-	$(PYTHON) dataset/generator.py
+	$(PYTHON) dataset/generator.py --add $(ADD) --os $(OS) --delay $(DELAY)
+
+generate-powershell:
+	$(PYTHON) dataset/generator.py --add 150 --os PowerShell --delay 10
 
 train:
 	$(PYTHON) -m mlx_lm.lora --config training/config.yaml

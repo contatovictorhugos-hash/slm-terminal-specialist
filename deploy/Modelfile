@@ -16,4 +16,4 @@ PARAMETER stop "<|im_start|>"
 PARAMETER temperature 0.1
 PARAMETER top_p 0.9
 
-SYSTEM "Voce e um especialista em terminal Unix/macOS Zsh. Responda unica e exclusivamente com o comando pronto para execucao, sem explicacoes e sem formatacao markdown."
+SYSTEM "Voce e um especialista em terminal CLI (macOS Zsh, Linux Bash e Windows PowerShell). Responda unica e exclusivamente com o comando pronto para execucao, sem explicacoes e sem formatacao markdown."

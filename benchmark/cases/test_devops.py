@@ -43,7 +43,8 @@ def get_devops_cases():
 
     # 4. Docker ps IDs
     def static_dev04(cmd: str):
-        if "docker" in cmd and "ps" in cmd and ("-q" in cmd or "--quiet" in cmd):
+        has_quiet = bool(re.search(r"-[a-zA-Z]*q\b", cmd) or "--quiet" in cmd or "-q" in cmd)
+        if "docker" in cmd and "ps" in cmd and has_quiet:
             return True, ""
         return False, f"Comando docker nao utilizou flag -q para extrair apenas IDs: {cmd}"
     cases.append({
@@ -113,7 +114,13 @@ def get_devops_cases():
 
     # 9. Processo consumindo mais CPU
     def static_dev09(cmd: str):
-        if ("ps" in cmd or "top" in cmd) and ("cpu" in cmd.lower() or "%cpu" in cmd.lower()):
+        is_cpu_sort = (
+            "cpu" in cmd.lower()
+            or "%cpu" in cmd.lower()
+            or bool(re.search(r"sort\s+.*-[a-zA-Z]*k\s*3\b", cmd))
+            or bool(re.search(r"sort\s+.*-[a-zA-Z]*k3\b", cmd))
+        )
+        if ("ps" in cmd or "top" in cmd) and is_cpu_sort:
             return True, ""
         return False, f"Comando nao filtra processos ordenando por CPU: {cmd}"
     cases.append({

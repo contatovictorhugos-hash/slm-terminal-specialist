@@ -19,6 +19,7 @@ def get_os_matrix_cases():
         "id": "os_mac_01",
         "prompt": "substituir a palavra erro por aviso diretamente no arquivo notas.txt no macos",
         "category": "Matriz OS (macOS BSD)",
+        "target_os": "macOS",
         "static_eval": eval_mac01
     })
 
@@ -31,6 +32,7 @@ def get_os_matrix_cases():
         "id": "os_mac_02",
         "prompt": "copiar o conteudo do arquivo chave.pub para a area de transferencia no macos",
         "category": "Matriz OS (macOS BSD)",
+        "target_os": "macOS",
         "static_eval": eval_mac02
     })
 
@@ -43,6 +45,7 @@ def get_os_matrix_cases():
         "id": "os_mac_03",
         "prompt": "redimensionar a imagem foto.jpg para largura de 800 pixels mantendo a proporcao no macos",
         "category": "Matriz OS (macOS BSD)",
+        "target_os": "macOS",
         "static_eval": eval_mac03
     })
 
@@ -55,6 +58,7 @@ def get_os_matrix_cases():
         "id": "os_mac_04",
         "prompt": "abrir a pasta atual no finder pelo terminal",
         "category": "Matriz OS (macOS BSD)",
+        "target_os": "macOS",
         "static_eval": eval_mac04
     })
 
@@ -74,6 +78,7 @@ def get_os_matrix_cases():
         "id": "os_linux_01",
         "prompt": "substituir a palavra erro por aviso diretamente no arquivo notas.txt no linux",
         "category": "Matriz OS (Linux GNU)",
+        "target_os": "Linux",
         "static_eval": eval_linux01
     })
 
@@ -86,6 +91,7 @@ def get_os_matrix_cases():
         "id": "os_linux_02",
         "prompt": "copiar o conteudo do arquivo chave.pub para a area de transferencia no linux",
         "category": "Matriz OS (Linux GNU)",
+        "target_os": "Linux",
         "static_eval": eval_linux02
     })
 
@@ -98,6 +104,7 @@ def get_os_matrix_cases():
         "id": "os_linux_03",
         "prompt": "abrir o arquivo relatorio.pdf no aplicativo padrao pelo terminal no linux",
         "category": "Matriz OS (Linux GNU)",
+        "target_os": "Linux",
         "static_eval": eval_linux03
     })
 
@@ -112,8 +119,9 @@ def get_os_matrix_cases():
         return False, f"Esperado traducao para ps ou top (evitando sintaxe PowerShell): {cmd}"
     cases.append({
         "id": "os_pwsh_01",
-        "prompt": "como faco o equivalente unix ao comando powershell Get-Process para listar processos",
+        "prompt": "[macOS] como faco o equivalente unix ao comando powershell Get-Process para listar processos",
         "category": "Matriz OS (PowerShell ➔ POSIX)",
+        "target_os": "macOS",
         "static_eval": eval_pwsh01
     })
 
@@ -124,8 +132,9 @@ def get_os_matrix_cases():
         return False, f"Esperado traducao de Select-String para grep: {cmd}"
     cases.append({
         "id": "os_pwsh_02",
-        "prompt": "como faco o equivalente unix ao comando powershell Select-String 'erro' em log.txt",
+        "prompt": "[macOS] como faco o equivalente unix ao comando powershell Select-String 'erro' em log.txt",
         "category": "Matriz OS (PowerShell ➔ POSIX)",
+        "target_os": "macOS",
         "static_eval": eval_pwsh02
     })
 
@@ -136,9 +145,79 @@ def get_os_matrix_cases():
         return False, f"Esperado traducao de Get-Content -Tail para tail: {cmd}"
     cases.append({
         "id": "os_pwsh_03",
-        "prompt": "como faco o equivalente unix do comando powershell Get-Content arquivo.txt -Tail 20",
+        "prompt": "[macOS] como faco o equivalente unix do comando powershell Get-Content arquivo.txt -Tail 20",
         "category": "Matriz OS (PowerShell ➔ POSIX)",
+        "target_os": "macOS",
         "static_eval": eval_pwsh03
+    })
+
+    # ==========================================
+    # 4. Ecossistema Windows PowerShell Nativo
+    # ==========================================
+
+    # pwsh_nat_01: Listar processos por memoria
+    def eval_pwsh_nat01(cmd: str):
+        if "Get-Process" in cmd and ("Sort-Object" in cmd or "sort" in cmd) and ("WorkingSet" in cmd or "WS" in cmd):
+            return True, ""
+        return False, f"Esperado cmdlet Get-Process ordenando por WorkingSet: {cmd}"
+    cases.append({
+        "id": "pwsh_nat_01",
+        "prompt": "listar os 10 processos que estao consumindo mais memoria ram",
+        "category": "Matriz OS (PowerShell Nativo)",
+        "target_os": "PowerShell",
+        "static_eval": eval_pwsh_nat01
+    })
+
+    # pwsh_nat_02: Select-String em logs
+    def eval_pwsh_nat02(cmd: str):
+        if "Select-String" in cmd and "erro" in cmd.lower():
+            return True, ""
+        return False, f"Esperado cmdlet Select-String buscando padrao 'erro': {cmd}"
+    cases.append({
+        "id": "pwsh_nat_02",
+        "prompt": "buscar a palavra erro nos arquivos de log",
+        "category": "Matriz OS (PowerShell Nativo)",
+        "target_os": "PowerShell",
+        "static_eval": eval_pwsh_nat02
+    })
+
+    # pwsh_nat_03: Get-Content -Tail
+    def eval_pwsh_nat03(cmd: str):
+        if "Get-Content" in cmd and "app.log" in cmd and ("-Tail" in cmd or "-Last" in cmd or "20" in cmd):
+            return True, ""
+        return False, f"Esperado cmdlet Get-Content com flag -Tail apontando para app.log: {cmd}"
+    cases.append({
+        "id": "pwsh_nat_03",
+        "prompt": "ler as ultimas 20 linhas do arquivo app.log",
+        "category": "Matriz OS (PowerShell Nativo)",
+        "target_os": "PowerShell",
+        "static_eval": eval_pwsh_nat03
+    })
+
+    # pwsh_nat_04: Stop-Process por nome
+    def eval_pwsh_nat04(cmd: str):
+        if "Stop-Process" in cmd and "node" in cmd:
+            return True, ""
+        return False, f"Esperado cmdlet Stop-Process com parametro -Name node: {cmd}"
+    cases.append({
+        "id": "pwsh_nat_04",
+        "prompt": "parar todos os processos com o nome node",
+        "category": "Matriz OS (PowerShell Nativo)",
+        "target_os": "PowerShell",
+        "static_eval": eval_pwsh_nat04
+    })
+
+    # pwsh_nat_05: Get-PSDrive para espaco em disco
+    def eval_pwsh_nat05(cmd: str):
+        if any(tool in cmd for tool in ["Get-PSDrive", "Get-Volume", "Get-CimInstance"]):
+            return True, ""
+        return False, f"Esperado cmdlet Get-PSDrive ou Get-Volume para inspecao de disco: {cmd}"
+    cases.append({
+        "id": "pwsh_nat_05",
+        "prompt": "ver quanto espaco tenho no disco",
+        "category": "Matriz OS (PowerShell Nativo)",
+        "target_os": "PowerShell",
+        "static_eval": eval_pwsh_nat05
     })
 
     return cases

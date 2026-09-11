@@ -67,6 +67,13 @@ def validate_dataset_file(filepath: Path) -> dict:
 
     top_commands = sorted(command_freq.items(), key=lambda x: x[1], reverse=True)[:12]
 
+    os_distribution = {
+        "macOS": sum(1 for p in prompts if p.startswith("[macOS]")),
+        "Linux": sum(1 for p in prompts if p.startswith("[Linux]")),
+        "PowerShell": sum(1 for p in prompts if p.startswith("[PowerShell]")),
+        "Sem_Tag": sum(1 for p in prompts if not (p.startswith("[macOS]") or p.startswith("[Linux]") or p.startswith("[PowerShell]")))
+    }
+
     return {
         "total": total,
         "errors": errors,
@@ -75,6 +82,7 @@ def validate_dataset_file(filepath: Path) -> dict:
         "emoji_count": emoji_count,
         "unique_commands": len(command_freq),
         "top_commands": top_commands,
+        "os_distribution": os_distribution,
     }
 
 def main():
@@ -92,7 +100,8 @@ def main():
     print(f"  - Duplicatas exatas de prompt:  {train_res['duplicates']}")
     print(f"  - Blocos de markdown indevidos: {train_res['markdown_blocks']}")
     print(f"  - Emojis detectados:            {train_res['emoji_count']}")
-    print(f"  - Comandos Unix distintos:      {train_res['unique_commands']}")
+    print(f"  - Comandos CLI distintos:       {train_res['unique_commands']}")
+    print(f"  - Distribuicao por SO:          [macOS: {train_res['os_distribution']['macOS']} | Linux: {train_res['os_distribution']['Linux']} | PowerShell: {train_res['os_distribution']['PowerShell']} | Sem Tag: {train_res['os_distribution']['Sem_Tag']}]")
     print("  - Principais utilitarios identificados:")
     for cmd, count in train_res["top_commands"]:
         print(f"      * {cmd:<15} ({count} ocorrencias)")
@@ -106,7 +115,8 @@ def main():
     print(f"  - Duplicatas exatas de prompt:  {valid_res['duplicates']}")
     print(f"  - Blocos de markdown indevidos: {valid_res['markdown_blocks']}")
     print(f"  - Emojis detectados:            {valid_res['emoji_count']}")
-    print(f"  - Comandos Unix distintos:      {valid_res['unique_commands']}")
+    print(f"  - Comandos CLI distintos:       {valid_res['unique_commands']}")
+    print(f"  - Distribuicao por SO:          [macOS: {valid_res['os_distribution']['macOS']} | Linux: {valid_res['os_distribution']['Linux']} | PowerShell: {valid_res['os_distribution']['PowerShell']} | Sem Tag: {valid_res['os_distribution']['Sem_Tag']}]")
     print("=" * 65)
 
     # Verificacao de amostras aleatorias para inspecao humana

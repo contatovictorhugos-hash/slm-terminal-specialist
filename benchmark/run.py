@@ -37,24 +37,50 @@ def main():
     print(f"  - Timeout por Teste:  {args.timeout}s")
     print("=" * 70)
 
-    for idx, c in enumerate(all_cases, 1):
-        cid = c["id"]
-        prompt = c["prompt"]
-        cat = c["category"]
-        setup = c.get("setup")
-        assertion = c.get("assertion")
-        static_eval = c.get("static_eval")
+import sys
+import time
+from pathlib import Path
+from datetime import datetime
 
-        res = run_test_case(
-            case_id=cid,
-            prompt=prompt,
-            category=cat,
-            setup_fn=setup,
-            assertion_fn=assertion,
-            static_eval_fn=static_eval,
-            model=args.model,
-            timeout_sec=args.timeout
-        )
+# Adiciona a raiz do projeto ao sys.path para importacao dos modulos
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from benchmark.engine import run_test_case, BenchmarkResult, TestCase
+from benchmark.cases.test_tabular import get_tabular_cases
+from benchmark.cases.test_files import get_files_cases
+from benchmark.cases.test_devops import get_devops_cases
+from benchmark.cases.test_os_matrix import get_os_matrix_cases
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Executor Oficial de Benchmark - SLM Especialista em Terminal (Tri-OS)")
+    parser.add_argument("--model", type=str, default="term-specialist-q4", help="Nome do modelo no Ollama a ser avaliado")
+    parser.add_argument("--timeout", type=float, default=4.0, help="Timeout por caso de teste em segundos")
+    args = parser.parse_args()
+
+    # Coleta de todos os cenarios calibrados
+    all_cases = []
+    all_cases.extend(get_tabular_cases())     # 10 casos
+    all_cases.extend(get_files_cases())       # 10 casos
+    all_cases.extend(get_devops_cases())      # 10 casos
+    all_cases.extend(get_os_matrix_cases())   # 15 casos (macOS, Linux, PowerShell)
+
+    total_cases = len(all_cases)
+    results: list[BenchmarkResult] = []
+
+    print("=" * 75)
+    print(f"[INICIANDO BENCHMARK TRI-OS EM SANDBOX E ISOLAMENTO MULTIPLATAFORMA]")
+    print(f"  - Modelo Alvo:        {args.model}")
+    print(f"  - Total de Cenarios:  {total_cases} casos")
+    print(f"  - Arquitetura:        Injecao Contextual + Sandbox /tmp + Multi-Shell Syntax")
+    print(f"  - Timeout por Teste:  {args.timeout}s")
+    print("=" * 75)
+
+    for idx, c in enumerate(all_cases, 1):
+        if isinstance(c, dict):
+            c["timeout"] = args.timeout
+
+        res = run_test_case(c, model=args.model)
         results.append(res)
 
         # Status do caso individual
@@ -65,10 +91,11 @@ def main():
             res.passed_assertion
         )
         status_tag = "[OK]   " if is_fully_passed else "[FALHA]"
-        print(f"  {status_tag} #{idx:02d}/{total_cases:02d} [{cid}] {cat[:20]:<20} ({res.latency_ms:.1f}ms)")
+        print(f"  {status_tag} #{idx:02d}/{total_cases:02d} [{res.case_id}] {res.category[:22]:<22} [{res.target_os:<10}] ({res.latency_ms:.1f}ms)")
         if not is_fully_passed:
-            print(f"           Cmd: {res.cleaned_command}")
-            print(f"           Erro: {res.error_detail}")
+            print(f"           Prompt: {res.prompt}")
+            print(f"           Cmd:    {res.cleaned_command}")
+            print(f"           Erro:   {res.error_detail}")
 
     # Consolidacao das metricas
     passed_format_cnt = sum(1 for r in results if r.passed_format)
@@ -87,6 +114,22 @@ def main():
 
     tps_list = [r.tokens_per_second for r in results if r.tokens_per_second > 0]
     avg_tps = sum(tps_list) / len(tps_list) if tps_list else 0.0
+
+    # Metricas por Sistema Operacional
+    os_list = sorted(list(set(r.target_os for r in results)))
+    os_stats = {}
+    for os_name in os_list:
+        os_res = [r for r in results if r.target_os == os_name]
+        os_passed = sum(
+            1 for r in os_res
+            if r.passed_format and r.passed_safety and r.passed_syntax and r.passed_assertion
+        )
+        os_stats[os_name] = {
+            "total": len(os_res),
+            "passed": os_passed,
+            "rate": (os_passed / len(os_res)) * 100.0 if os_res else 0.0,
+            "avg_lat": sum(r.latency_ms for r in os_res) / len(os_res) if os_res else 0.0
+        }
 
     # Metricas por categoria
     categories = sorted(list(set(r.category for r in results)))
@@ -107,25 +150,29 @@ def main():
     overall_score = (fully_passed_cnt / total_cases) * 100.0
 
     # Exibicao no terminal
-    print("\n" + "=" * 70)
-    print(f"[RESULTADOS CONSOLIDADOS DO BENCHMARK]")
-    print("=" * 70)
+    print("\n" + "=" * 75)
+    print(f"[RESULTADOS CONSOLIDADOS DO BENCHMARK TRI-OS]")
+    print("=" * 75)
     print(f"Modelo Avaliado:                     {args.model}")
     print(f"Acuracia Global Ponderada:          {overall_score:.1f}% ({fully_passed_cnt}/{total_cases})")
     print(f"Latencia Media por Invocacao:       {avg_latency:.1f}ms (Min: {min_latency:.1f}ms | Max: {max_latency:.1f}ms)")
     if avg_tps > 0:
         print(f"Velocidade Media de Geracao:        {avg_tps:.1f} tokens/segundo")
-    print("-" * 70)
-    print(f"Métricas por Camada:")
+    print("-" * 75)
+    print(f"Metricas por Camada de Inspecao:")
     print(f"  - Seguranca Preventiva:            {(passed_safety_cnt / total_cases) * 100.0:.1f}% ({passed_safety_cnt}/{total_cases})")
     print(f"  - Formato Estrito (Zero Markdown): {(passed_format_cnt / total_cases) * 100.0:.1f}% ({passed_format_cnt}/{total_cases})")
-    print(f"  - Sintaxe Valida no Shell:         {(passed_syntax_cnt / total_cases) * 100.0:.1f}% ({passed_syntax_cnt}/{total_cases})")
+    print(f"  - Sintaxe Valida no Shell Alvo:    {(passed_syntax_cnt / total_cases) * 100.0:.1f}% ({passed_syntax_cnt}/{total_cases})")
     print(f"  - Assercao de Estado Funcional:    {(passed_assert_cnt / total_cases) * 100.0:.1f}% ({passed_assert_cnt}/{total_cases})")
-    print("-" * 70)
-    print("Desempenho por Categoria:")
+    print("-" * 75)
+    print("Desempenho por Sistema Operacional:")
+    for os_name, stat in os_stats.items():
+        print(f"  * {os_name:<16} {stat['rate']:>5.1f}% ({stat['passed']}/{stat['total']}) | Latencia: {stat['avg_lat']:.1f}ms")
+    print("-" * 75)
+    print("Desempenho por Categoria Tematica:")
     for cat, stat in cat_stats.items():
         print(f"  * {cat:<32} {stat['rate']:>5.1f}% ({stat['passed']}/{stat['total']}) | Latencia: {stat['avg_lat']:.1f}ms")
-    print("=" * 70)
+    print("=" * 75)
 
     # Gravacao do Relatorio em Markdown
     reports_dir = Path("benchmark/reports")
@@ -134,7 +181,7 @@ def main():
 
     now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(report_file, "w", encoding="utf-8") as f:
-        f.write("# Relatorio Oficial de Benchmark — SLM Especialista em Terminal\n\n")
+        f.write("# Relatorio Oficial de Benchmark — SLM Especialista em Terminal (Tri-OS)\n\n")
         f.write(f"- **Data da Avaliacao:** {now_str}\n")
         f.write(f"- **Modelo Avaliado:** `{args.model}`\n")
         f.write(f"- **Total de Casos de Teste:** {total_cases}\n")
@@ -146,16 +193,22 @@ def main():
         f.write("| :--- | :--- | :--- |\n")
         f.write(f"| **Seguranca Preventiva** | {(passed_safety_cnt / total_cases) * 100.0:.1f}% | {passed_safety_cnt}/{total_cases} |\n")
         f.write(f"| **Formato Estrito (Zero Markdown)** | {(passed_format_cnt / total_cases) * 100.0:.1f}% | {passed_format_cnt}/{total_cases} |\n")
-        f.write(f"| **Sintaxe Gramatical Zsh (zsh -n)** | {(passed_syntax_cnt / total_cases) * 100.0:.1f}% | {passed_syntax_cnt}/{total_cases} |\n")
+        f.write(f"| **Sintaxe Gramatical no Shell Alvo** | {(passed_syntax_cnt / total_cases) * 100.0:.1f}% | {passed_syntax_cnt}/{total_cases} |\n")
         f.write(f"| **Assercao Funcional em Sandbox** | {(passed_assert_cnt / total_cases) * 100.0:.1f}% | {passed_assert_cnt}/{total_cases} |\n\n")
         f.write("---\n\n")
-        f.write("## 2. Desempenho por Categoria\n\n")
+        f.write("## 2. Desempenho por Sistema Operacional\n\n")
+        f.write("| Sistema Operacional | Taxa de Sucesso | Aprovados | Latencia Media |\n")
+        f.write("| :--- | :--- | :--- | :--- |\n")
+        for os_name, stat in os_stats.items():
+            f.write(f"| **{os_name}** | **{stat['rate']:.1f}%** | {stat['passed']}/{stat['total']} | {stat['avg_lat']:.1f} ms |\n")
+        f.write("\n---\n\n")
+        f.write("## 3. Desempenho por Categoria Tematica\n\n")
         f.write("| Categoria Tematica | Taxa de Sucesso | Aprovados | Latencia Media |\n")
         f.write("| :--- | :--- | :--- | :--- |\n")
         for cat, stat in cat_stats.items():
             f.write(f"| {cat} | **{stat['rate']:.1f}%** | {stat['passed']}/{stat['total']} | {stat['avg_lat']:.1f} ms |\n")
         f.write("\n---\n\n")
-        f.write("## 3. Detalhamento de Falhas Identificadas\n\n")
+        f.write("## 4. Detalhamento de Falhas Identificadas\n\n")
         failures = [
             r for r in results
             if not (r.passed_format and r.passed_safety and r.passed_syntax and r.passed_assertion)
@@ -165,6 +218,7 @@ def main():
         else:
             for fail in failures:
                 f.write(f"### Caso `{fail.case_id}`: {fail.prompt}\n")
+                f.write(f"- **Sistema Operacional:** {fail.target_os}\n")
                 f.write(f"- **Categoria:** {fail.category}\n")
                 f.write(f"- **Comando Gerado:** `{fail.cleaned_command}`\n")
                 f.write(f"- **Diagnostico:** {fail.error_detail}\n\n")

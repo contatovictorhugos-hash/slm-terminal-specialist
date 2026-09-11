@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import time
 import random
@@ -17,7 +18,7 @@ if not API_KEY:
 
 client = genai.Client(api_key=API_KEY)
 
-# 2. Pool de Modelos e Controle de Cotas
+# 2. Pool de Modelos do Google Gemini e Controle de Taxa
 MODELS_POOL = [
     "gemini-3.5-flash-lite",     # 1a opcao: Ultra-rapido, estavel e sem gargalo de 503
     "gemini-flash-lite-latest",  # 2a opcao: Alias oficial de alta disponibilidade
@@ -26,78 +27,160 @@ MODELS_POOL = [
     "gemini-3.6-flash"           # 5a opcao: Maxima fidelidade de comandos
 ]
 
-MAX_REQS_PER_MODEL = 15  # Teto de seguranca por modelo
-MAX_RETRIES_PER_MODEL = 3  # Tentativas antes de alternar de modelo
+MAX_REQS_PER_MODEL = 18
+MAX_RETRIES_PER_MODEL = 3
 
-# Estado de cada modelo no pool
 model_status = {
     model: {"calls": 0, "available": True}
     for model in MODELS_POOL
 }
 
-# 3. Schemas de Validacao Estruturada com Pydantic
+# 3. Schemas Pydantic para Saida Estruturada
 class CommandPair(BaseModel):
-    user_prompt: str = Field(description="Pedido do usuario em portugues do Brasil natural e coloquial")
-    command: str = Field(description="Comando puro do terminal Unix/macOS Zsh, sem markdown e sem explicacoes")
-    category: str = Field(description="Categoria do comando")
+    user_prompt: str = Field(description="Pedido comecando com [macOS], [Linux] ou [PowerShell] seguido da intencao em portugues")
+    command: str = Field(description="Comando puro correspondente sem formatacao markdown e sem explicacoes")
+    category: str = Field(description="Categoria tematica do comando")
 
 class CommandBatch(BaseModel):
     items: list[CommandPair]
 
-# 4. Distribuicao das Categorias (conforme a Constituicao do Projeto)
-CATEGORIES = [
-    {
-        "name": "Manipulacao de Arquivos e Midia",
-        "description": "Juntar PDFs (pdfunite/gs), converter imagens (sips/magick), manipular audio e video com ffmpeg, compactar (tar, zip, rsync), renomear em massa.",
-        "weight": 0.35,
-    },
-    {
-        "name": "Filtros e Processamento Tabular",
-        "description": "Comandos com awk, sed, grep, cut, sort, uniq, jq, uniao de CSVs preservando apenas o primeiro cabecalho, contagem e extracao de colunas.",
-        "weight": 0.30,
-    },
-    {
-        "name": "DevOps, Rede e Administracao de Sistema",
-        "description": "Achar e matar processos em portas especificas (lsof, kill), monitorar memoria e CPU no macOS (top, ps, vm_stat), certificados SSL com curl, Git e Docker.",
-        "weight": 0.25,
-    },
-    {
-        "name": "One-liners Complexos e Pipelines Zsh",
-        "description": "Pipelines encadeados com multiplos pipes (|), xargs paralelos, python3 -c one-liners rapidos, substituicao de comandos.",
-        "weight": 0.10,
-    }
-]
+# 4. Catalogo de Categorias por Sistema Operacional
+CATEGORIES_BY_OS = {
+    "PowerShell": [
+        {
+            "name": "PowerShell - Arquivos, Pastas e Busca",
+            "os_tag": "[PowerShell]",
+            "description": "Comandos nativos do PowerShell: Get-ChildItem -Recurse, Remove-Item -Force, New-Item, Copy-Item, Test-Path, Get-ItemProperty, Move-Item.",
+            "weight": 0.20,
+        },
+        {
+            "name": "PowerShell - Texto, Logs e Strings",
+            "os_tag": "[PowerShell]",
+            "description": "Busca e transformacao: Select-String -Pattern, Get-Content -Tail, Measure-Object -Line, (Get-Content f) -replace 'a','b' | Set-Content f, Select-Object -Unique.",
+            "weight": 0.20,
+        },
+        {
+            "name": "PowerShell - Processos, Servicos e Sistema",
+            "os_tag": "[PowerShell]",
+            "description": "Gestao de processos e servicos: Get-Process | Sort-Object CPU, Stop-Process -Name/-Id, Get-Service, Restart-Service, Get-CimInstance.",
+            "weight": 0.20,
+        },
+        {
+            "name": "PowerShell - Dados Estruturados, CSV e JSON",
+            "os_tag": "[PowerShell]",
+            "description": "Pipelines estruturados: Import-Csv | Where-Object | Export-Csv -NoTypeInformation, ConvertFrom-Json, ConvertTo-Json, Group-Object.",
+            "weight": 0.20,
+        },
+        {
+            "name": "PowerShell - Rede, Download, Compressao e Utilitarios",
+            "os_tag": "[PowerShell]",
+            "description": "Utilitarios: Invoke-WebRequest -OutFile, Invoke-RestMethod, Test-NetConnection -Port, Compress-Archive, Expand-Archive, Set-Clipboard.",
+            "weight": 0.20,
+        },
+    ],
+    "macOS": [
+        {
+            "name": "macOS - Utilitarios BSD e Sistema de Arquivos",
+            "os_tag": "[macOS]",
+            "description": "Comandos BSD macOS: sed -i '' 's///g', stat -f %m, sips -Z 800, pbcopy, pbpaste, open -a, diskutil.",
+            "weight": 0.25,
+        },
+        {
+            "name": "macOS - Processos, Portas e launchd",
+            "os_tag": "[macOS]",
+            "description": "Processos macOS: top -l 1 -o cpu, ps -m -o %cpu,comm, killall Finder, lsof -ti:PORT | xargs kill -9, launchctl.",
+            "weight": 0.25,
+        },
+        {
+            "name": "macOS - Pipelines, CSV e Zsh",
+            "os_tag": "[macOS]",
+            "description": "Filtros Zsh: awk 'FNR==1 && NR!=1 {next} 1' *.csv, sort | uniq, grep -c ., cut -f3, jq.",
+            "weight": 0.25,
+        },
+        {
+            "name": "macOS - DevOps, Docker, Git e Brew",
+            "os_tag": "[macOS]",
+            "description": "DevOps no Mac: docker ps -q | xargs -r docker stop, docker system prune -af, brew cleanup, git status -s.",
+            "weight": 0.25,
+        },
+    ],
+    "Linux": [
+        {
+            "name": "Linux - Utilitarios GNU e Arquivos",
+            "os_tag": "[Linux]",
+            "description": "Comandos GNU Linux: sed -i 's///g' (sem aspas extras), stat -c %Y, xclip -selection clipboard, xdg-open, lsblk, df -h.",
+            "weight": 0.25,
+        },
+        {
+            "name": "Linux - Systemd, Processos e Servicos",
+            "os_tag": "[Linux]",
+            "description": "Administracao Linux: systemctl restart/status, journalctl -u, ps aux --sort=-%cpu, free -h, ss -tulpn, pidof | xargs kill -9.",
+            "weight": 0.25,
+        },
+        {
+            "name": "Linux - Pipelines, CSV e Bash",
+            "os_tag": "[Linux]",
+            "description": "Filtros Bash: awk 'FNR==1 && NR!=1 {next} 1' *.csv, sort | uniq, grep -c ., cut -d$'\\t' -f3, jq.",
+            "weight": 0.25,
+        },
+        {
+            "name": "Linux - DevOps, Docker, Rede e Pacotes",
+            "os_tag": "[Linux]",
+            "description": "DevOps Linux: docker ps -q | xargs -r docker stop, docker system prune -af, apt-get, ip addr, ip route, ufw.",
+            "weight": 0.25,
+        },
+    ],
+    "all": [
+        {
+            "name": "PowerShell Nativo (Windows / pwsh)",
+            "os_tag": "[PowerShell]",
+            "description": "Comandos nativos do PowerShell: Get-Process, Stop-Process, Select-String, Get-Content, Set-Content, Get-ChildItem, Invoke-WebRequest, Export-Csv.",
+            "weight": 0.40,
+        },
+        {
+            "name": "Matriz OS Contrastiva (Linux GNU vs macOS BSD)",
+            "os_tag": "MISTO",
+            "description": "Sintaxe contrastiva GNU vs BSD: sed -i vs sed -i '', xclip vs pbcopy, stat -c %Y vs stat -f %m, xdg-open vs open.",
+            "weight": 0.30,
+        },
+        {
+            "name": "Filtros e Pipelines Cirurgicos (Benchmark Patching)",
+            "os_tag": "MISTO",
+            "description": "Filtros precisos Unix (macOS/Linux): awk 'FNR==1 && NR!=1 {next} 1', sort | uniq, grep -c ., cut -f3, lsof -ti:PORT | xargs kill -9.",
+            "weight": 0.30,
+        },
+    ],
+}
 
-SYSTEM_PROMPT = """Voce e um especialista em terminal Unix e Zsh no macOS (Apple Silicon).
-Sua missao e gerar pares sinteticos de alta fidelidade para treinar uma SLM especialista em terminal.
+SYSTEM_PROMPT = """Voce e um compilador especialista em terminal e automacao CLI para macOS (Zsh/BSD), Linux (Bash/GNU) e Windows (PowerShell).
+Sua missao e gerar pares sinteticos para treino de uma SLM de terminal.
 
-REGRAS RIGIDAS:
-1. 'user_prompt': Deve ser uma intencao realista em portugues do Brasil (coloquial, direto, com ou sem acentos).
-2. 'command': Deve ser APENAS a linha de comando pura executavel.
-   - NUNCA inclua explicacoes, comentarios ou markdown (nada de ```bash).
-   - Use comandos compativeis com macOS (utilitarios BSD quando aplicavel, ou ferramentas comuns como ffmpeg, jq, git, docker).
-3. Varie o nivel de complexidade e vocabulario a cada lote.
+REGRAS:
+1. 'user_prompt': DEVE OBRIGATORIAMENTE comecar com o prefixo do ambiente: [macOS], [Linux] ou [PowerShell].
+2. 'command': DEVE ser estritamente o comando executavel puro. Sem blocos markdown (nada de ```) e sem explicacoes.
 """
 
 def get_active_model() -> str | None:
-    """Retorna o proximo modelo do pool disponivel e com cota."""
     for model in MODELS_POOL:
         state = model_status[model]
         if state["available"] and state["calls"] < MAX_REQS_PER_MODEL:
             return model
     return None
 
-def generate_batch_with_fallback(category: dict, num_items: int) -> tuple[list[dict], str | None]:
-    """
-    Tenta gerar o lote com o modelo ativo.
-    Se o modelo falhar 3 vezes (ex: 503 ou erro temporario), marca-o como indisponivel
-    e pula imediatamente para o proximo modelo do pool.
-    """
-    prompt = f"""Gere exatamente {num_items} pares de treino distintos para a categoria:
+def generate_batch(category: dict, num_items: int) -> tuple[list[dict], str | None]:
+    os_req = category.get("os_tag", "MISTO")
+    if os_req == "MISTO":
+        prefix_rule = "Todo 'user_prompt' deve comecar com '[macOS] ' ou '[Linux] '."
+    else:
+        prefix_rule = f"Todo 'user_prompt' DEVE comecar com o prefixo '{os_req} '."
+
+    prompt = f"""Gere exatamente {num_items} pares de treino distintos para:
 Categoria: {category['name']}
 Detalhes: {category['description']}
 
-Gere casos de uso diversificados, variando termos em portugues e comandos reais de terminal."""
+Lembre-se:
+1. {prefix_rule}
+2. O campo 'command' DEVE ser o comando executavel puro, sem markdown."""
 
     while True:
         current_model = get_active_model()
@@ -118,13 +201,23 @@ Gere casos de uso diversificados, variando termos em portugues e comandos reais 
                         response_mime_type="application/json",
                         response_schema=CommandBatch,
                         temperature=0.75,
-                    )
+                    ),
                 )
                 batch = CommandBatch.model_validate_json(response.text)
-                items = [item.model_dump() for item in batch.items]
+                for it in batch.items:
+                    d = it.model_dump()
+                    up = d["user_prompt"].strip()
+                    # Garante prefixo estrito
+                    if os_req in ["[PowerShell]", "[macOS]", "[Linux]"]:
+                        if not up.startswith(os_req):
+                            clean_up = re.sub(r"^\[(macOS|Linux|PowerShell)\]\s*", "", up)
+                            d["user_prompt"] = f"{os_req} {clean_up}"
+                    items.append(d)
+
                 model_status[current_model]["calls"] += 1
                 success = True
                 break
+
             except Exception as e:
                 err_str = str(e)
                 if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
@@ -139,13 +232,12 @@ Gere casos de uso diversificados, variando termos em portugues e comandos reais 
         if success:
             return items, current_model
         else:
-            # 3 falhas consecutivas: marca o modelo como indisponivel nesta rodada e tenta o proximo
-            print(f"\n[ROTAÇÃO] Modelo {current_model} atingiu {MAX_RETRIES_PER_MODEL} falhas. Alternando para o proximo modelo do pool...")
+            print(f"\n[ROTACAO] Modelo {current_model} atingiu falhas consecutivas. Alternando...")
             model_status[current_model]["available"] = False
 
-def load_existing_data(data_dir: Path) -> list[dict]:
-    """Carrega dados ja gerados anteriormente para nao perder amostras."""
-    existing = []
+def load_existing_dataset(data_dir: Path) -> list[dict]:
+    """Carrega dados existentes preservando tags já atribuídas."""
+    pairs = []
     for filename in ["train.jsonl", "valid.jsonl"]:
         filepath = data_dir / filename
         if filepath.exists():
@@ -157,72 +249,84 @@ def load_existing_data(data_dir: Path) -> list[dict]:
                         user_p = next((m["content"] for m in msgs if m["role"] == "user"), None)
                         cmd = next((m["content"] for m in msgs if m["role"] == "assistant"), None)
                         if user_p and cmd:
-                            existing.append({"user_prompt": user_p, "command": cmd, "category": "existente"})
-    return existing
+                            pairs.append({"user_prompt": user_p, "command": cmd, "category": "existente"})
+
+    # Se houver registros legados sem tag de SO, distribui 50/50 entre macOS e Linux
+    result = []
+    for idx, item in enumerate(pairs):
+        up = item["user_prompt"].strip()
+        cmd = item["command"].strip()
+        if up.startswith("[macOS]") or up.startswith("[Linux]") or up.startswith("[PowerShell]"):
+            result.append({"user_prompt": up, "command": cmd, "category": item["category"]})
+        else:
+            tag = "[macOS]" if (idx % 2 == 0) else "[Linux]"
+            result.append({"user_prompt": f"{tag} {up}", "command": cmd, "category": item["category"]})
+
+    return result
 
 def main():
     import argparse
-    parser = argparse.ArgumentParser(description="Gerador de Dataset com Rotacao Automatica de Modelos")
-    parser.add_argument("--total", type=int, default=300, help="Quantidade total desejada de comandos")
-    parser.add_argument("--batch-size", type=int, default=25, help="Quantidade por chamada a API")
-    parser.add_argument("--delay", type=int, default=15, help="Intervalo em segundos entre chamadas com sucesso")
+    parser = argparse.ArgumentParser(description="Gerador de Dataset Sintetico Tri-OS (macOS, Linux, PowerShell)")
+    parser.add_argument("--add", "-n", type=int, default=150, help="Quantidade de registros a adicionar (padrao: 150)")
+    parser.add_argument("--os", "--focus-os", type=str, default="PowerShell", choices=["PowerShell", "macOS", "Linux", "all"], dest="target_os", help="Sistema operacional alvo (padrao: PowerShell)")
+    parser.add_argument("--delay", "-d", type=int, default=10, help="Intervalo em segundos entre chamadas bem-sucedidas (padrao: 10s)")
+    parser.add_argument("--batch-size", "-b", type=int, default=25, help="Quantidade de exemplos por requisicao a API (padrao: 25)")
     args = parser.parse_args()
 
     output_dir = Path("dataset/data")
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    all_pairs = load_existing_data(output_dir)
+    all_pairs = load_existing_dataset(output_dir)
     initial_count = len(all_pairs)
+    target_total = initial_count + args.add
+    categories = CATEGORIES_BY_OS[args.target_os]
 
-    print("=" * 60)
-    print("[INFO] Gerador de Dataset com Rotacao por Falha e Protecao de Cota")
-    print(f"  - Meta total: {args.total} exemplos")
-    print(f"  - Exemplos existentes preservados: {initial_count}")
-    print(f"  - Novos a gerar: {max(0, args.total - initial_count)}")
-    print(f"  - Modelos no Pool: {', '.join(MODELS_POOL)}")
-    print(f"  - Limite seguro por modelo: {MAX_REQS_PER_MODEL} requisicoes")
-    print(f"  - Intervalo configurado: {args.delay}s")
-    print("=" * 60)
+    print("=" * 65)
+    print(f"[INFO] Sintese de Dados para SLM de Terminal")
+    print(f"  - SO Alvo:             {args.target_os}")
+    print(f"  - Registros a Gerar:   {args.add}")
+    print(f"  - Base Atual:          {initial_count} registros")
+    print(f"  - Meta Consolidada:    {target_total} registros")
+    print(f"  - Delay:               {args.delay}s")
+    print(f"  - Tamanho do Lote:     {args.batch_size}")
+    print(f"  - Modelos no Pool:     {', '.join(MODELS_POOL)}")
+    print("=" * 65)
 
-    pbar = tqdm(total=args.total, initial=initial_count, desc="Total acumulado")
+    pbar = tqdm(total=target_total, initial=initial_count, desc="Total acumulado")
 
-    while len(all_pairs) < args.total:
+    while len(all_pairs) < target_total:
         active = get_active_model()
         if not active:
             print("\n[STOP] Todos os modelos do pool foram esgotados ou estao indisponiveis.")
             break
 
-        cat = random.choices(CATEGORIES, weights=[c["weight"] for c in CATEGORIES])[0]
-        remaining = args.total - len(all_pairs)
+        cat = random.choices(categories, weights=[c["weight"] for c in categories])[0]
+        remaining = target_total - len(all_pairs)
         batch_size = min(args.batch_size, remaining)
 
-        items, used_model = generate_batch_with_fallback(cat, num_items=batch_size)
+        items, used_model = generate_batch(cat, num_items=batch_size)
 
         if items:
             all_pairs.extend(items)
             pbar.update(len(items))
             pbar.set_postfix({
                 "modelo": used_model.replace("gemini-", ""),
-                "reqs": f"{model_status[used_model]['calls']}/{MAX_REQS_PER_MODEL}",
-                "total": len(all_pairs)
+                "total": len(all_pairs),
             })
             time.sleep(args.delay)
         else:
-            # Se nao conseguiu com nenhum modelo disponivel
             if not get_active_model():
                 break
 
     pbar.close()
 
-    # Embaralhar para distribuir uniformly os exemplos
+    # Embaralha e divide: 90% treino e 10% validacao
     random.shuffle(all_pairs)
-
-    # Divisao 90% treino e 10% validacao
     split_idx = int(len(all_pairs) * 0.9)
     train_data = all_pairs[:split_idx]
     valid_data = all_pairs[split_idx:]
 
-    SYSTEM_ROLE_CONTENT = "Voce e um especialista em terminal Unix/macOS Zsh. Responda unica e exclusivamente com o comando pronto para execucao, sem explicacoes e sem formatacao markdown."
+    SYSTEM_ROLE_CONTENT = "Voce e um especialista em terminal CLI (macOS Zsh, Linux Bash e Windows PowerShell). Responda unica e exclusivamente com o comando pronto para execucao, sem explicacoes e sem formatacao markdown."
 
     def save_jsonl(data: list[dict], filepath: Path):
         with open(filepath, "w", encoding="utf-8") as f:
@@ -231,7 +335,7 @@ def main():
                     "messages": [
                         {"role": "system", "content": SYSTEM_ROLE_CONTENT},
                         {"role": "user", "content": item["user_prompt"].strip()},
-                        {"role": "assistant", "content": item["command"].strip()}
+                        {"role": "assistant", "content": item["command"].strip()},
                     ]
                 }
                 f.write(json.dumps(entry, ensure_ascii=False) + "\n")
@@ -242,15 +346,19 @@ def main():
     save_jsonl(train_data, train_path)
     save_jsonl(valid_data, valid_path)
 
-    print("\n" + "=" * 60)
-    print("[RELATORIO DA RODADA]")
-    for model, state in model_status.items():
-        status_txt = "ativo" if state["available"] else "indisponivel/esgotado"
-        print(f"  - {model}: {state['calls']}/{MAX_REQS_PER_MODEL} requisicoes (status: {status_txt})")
-    print(f"  - Total consolidado no dataset: {len(all_pairs)} comandos")
+    mac_cnt = sum(1 for p in all_pairs if p["user_prompt"].startswith("[macOS]"))
+    linux_cnt = sum(1 for p in all_pairs if p["user_prompt"].startswith("[Linux]"))
+    pwsh_cnt = sum(1 for p in all_pairs if p["user_prompt"].startswith("[PowerShell]"))
+
+    print("\n" + "=" * 65)
+    print("[RELATORIO CONSOLIDADO DA BASE V2.0]")
+    print(f"  - Total de Exemplos:      {len(all_pairs)}")
+    print(f"  - Cobertura [macOS]:         {mac_cnt} ({mac_cnt/len(all_pairs)*100:.1f}%)")
+    print(f"  - Cobertura [Linux]:         {linux_cnt} ({linux_cnt/len(all_pairs)*100:.1f}%)")
+    print(f"  - Cobertura [PowerShell]:    {pwsh_cnt} ({pwsh_cnt/len(all_pairs)*100:.1f}%)")
     print(f"[OK] Treino:    {train_path} ({len(train_data)} pares)")
     print(f"[OK] Validacao: {valid_path} ({len(valid_data)} pares)")
-    print("=" * 60)
+    print("=" * 65)
 
 if __name__ == "__main__":
     main()

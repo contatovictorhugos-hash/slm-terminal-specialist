@@ -8,16 +8,22 @@ cmd() {
         return 1
     fi
 
+    local os_tag="macOS"
+    if [[ "$(uname -s)" == "Linux" ]]; then
+        os_tag="Linux"
+    fi
+
     local model="term-specialist-q4"
     if ! ollama list 2>/dev/null | grep -q "term-specialist-q4"; then
         model="term-specialist"
     fi
 
-    local suggestion=$(ollama run "$model" "$prompt" 2>/dev/null | head -n 1 | sed 's/^```bash//;s/^```zsh//;s/^```//;s/```$//')
+    local tagged_prompt="[$os_tag] $prompt"
+    local suggestion=$(ollama run "$model" "$tagged_prompt" 2>/dev/null | head -n 1 | sed 's/^```bash//;s/^```zsh//;s/^```powershell//;s/^```//;s/```$//')
 
     if [[ -n "$suggestion" ]]; then
         echo ""
-        echo "\033[1;32m[Sugestao]\033[0m $suggestion"
+        echo "\033[1;32m[Sugestao ($os_tag)]\033[0m $suggestion"
         echo ""
         # Injeta o comando diretamente no buffer de digitacao do Zsh para revisao humana
         print -z "$suggestion"

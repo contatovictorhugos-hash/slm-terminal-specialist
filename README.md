@@ -1,44 +1,53 @@
 # SLM Especialista em Terminal & Automacao CLI
 
-> Modelo de Linguagem Compacto (SLM) especializado na traducao de intencoes em linguagem natural (PT-BR) para comandos de terminal Unix/macOS Zsh deterministas e de alta performance.
+> Modelo de Linguagem Compacto (SLM) especializado na traducao deterministica e de alta performance de intencoes em linguagem natural (PT-BR) para comandos de terminal Tri-OS: macOS (Zsh/BSD), Linux (Bash/GNU) e Windows (PowerShell/pwsh).
 
 ---
 
-## 1. Visao Geral
+## 1. Visao Geral (Versao 2.0 Tri-OS)
 
-O **SLM Especialista em Terminal** e um modelo ajustado (fine-tuned) a partir do `Qwen/Qwen2.5-Coder-1.5B-Instruct`, projetado especificamente para o ecossistema **macOS (Apple Silicon)** e terminal **Zsh** (com total compatibilidade para Linux / Bash).
+O **SLM Especialista em Terminal** e um modelo ajustado (fine-tuned) a partir do `Qwen/Qwen2.5-Coder-1.5B-Instruct`. Na versao 2.0, o modelo opera como um compilador CLI universal multiplataforma com suporte nativo a:
+
+* **macOS (Zsh / BSD):** Sintaxe BSD nativa (`sed -i ''`, `stat -f %m`, `pbcopy`, `sips`, `launchctl`, etc.).
+* **Linux (Bash / GNU):** Sintaxe GNU padrao (`sed -i`, `stat -c %Y`, `xclip`, `systemctl`, `ip`, `ss`, etc.).
+* **Windows (PowerShell / pwsh):** Cmdlets e pipelines orientados a objetos (`Get-Process`, `Stop-Process`, `Select-String`, `Get-Content`, `Invoke-WebRequest`, `Export-Csv`, etc.).
 
 ### A Tese Central
 *"A IA e o compilador da intencao; o Sistema Operacional e o motor de execucao."*
 
-Em vez de enviar gigabytes de arquivos para modelos gigantes em nuvem, o usuario expressa sua intencao no terminal, a SLM local sugere a linha de comando ideal em menos de 50ms, e utilitarios de sistema nativos em C/Rust/Bash processam os dados na velocidade do hardware.
+Em vez de transferir grandes volumes de dados para modelos de nuvem, o usuario expressa a intencao diretamente no terminal. A SLM local gera a linha de comando ideal em menos de 50ms, permitindo que binarios compilados de baixo nivel processem os dados com maxima velocidade e privacidade total.
 
-### Principio da Soberania Humana e Seguranca Inegociavel
-* **Zero Execucao Autonoma:** O modelo e estritamente um sugeridor. Ele **nunca** executa comandos diretamente nem invoca chamadas de sistema (`os.system`, `subprocess`, etc.).
-* **Injecao no Buffer (`print -z`):** O comando sugerido e carregado diretamente na linha de edicao do shell, cabendo exclusivamente ao usuario revisar a sintaxe antes de teclar `[ENTER]`.
-* **Zero Markdown Residual:** A inferencia produz apenas o comando puro, sem introducoes, sem explicacoes e sem cercas de codigo markdown (` ``` `).
+### Principio da Soberania Humana e Seguranca
+* **Zero Execucao Autonoma:** O modelo atua unicamente como sugeridor. Ele nunca executa comandos diretamente nem aciona chamadas de sistema autonomamente.
+* **Injecao no Buffer de Edicao (`print -z` / Clipboard):** No Zsh, o comando e injetado diretamente no prompt para revisao humana antes do `[ENTER]`. No PowerShell, e copiado para a area de transferencia.
+* **Zero Markdown Residual:** A saida do modelo e exclusivamente o comando executavel puro, sem delimitadores markdown (` ``` `) e sem explicacoes prolixas.
+* **Injecao Dinamica de SO:** O shell identifica automaticamente a plataforma em execucao (`uname -s` ou `$PSVersionTable`) e injeta o prefixo contextual (`[macOS]`, `[Linux]` ou `[PowerShell]`), garantindo precisao sintatica sem exigir esforco do usuario.
 
 ---
 
 ## 2. Arquitetura do Pipeline
 
 ```
-[Gemini API (Google Pro)]
+[Gemini API (Google GenAI)]
         │
-        ▼ (Destilacao de Conhecimento & Validacao Pydantic)
-[Dataset Formatado (train.jsonl / valid.jsonl)]
+        ▼ (Sintese Parametrizada: --add, --os, --delay)
+[Dataset Tri-OS Formatado (dataset/data/train.jsonl e valid.jsonl)]
         │
-        ▼ (Fine-Tuning LoRA via GPU Apple Silicon)
+        ▼ (Fine-Tuning LoRA acelerado via GPU Metal no Apple Silicon)
 [MLX-LM: Adaptadores LoRA (adapters/)]
         │
-        ▼ (Fusao de Pesos)
+        ▼ (Fusao de Pesos float16)
 [Modelo Fundido Safetensors (models/fused-qwen-terminal)]
         │
-        ▼ (Empacotamento via Modelfile / Hugging Face)
-[Ollama Daemon Local (term-specialist)]
+        ▼ (Quantizacao Nativa Q4_K_M via Modelfile)
+[Ollama Local: term-specialist e term-specialist-q4 (986 MB)]
         │
-        ▼ (Injecao no Buffer via Zsh Widget)
-[Terminal Zsh / Bash: cmd "sua intencao"]
+        ├─────────────────────────────────────────┐
+        ▼                                         ▼
+[Suite de Benchmark em Sandbox]         [Integracao de Shell]
+- 45 cenarios automatizados (Tri-OS)    - Zsh (macOS / Linux)
+- Assercoes em /tmp + multi-shell       - PowerShell (Windows / pwsh)
+- Relatorio: latest_report.md           - Buffer interativo cmd "..."
 ```
 
 ---
@@ -47,62 +56,61 @@ Em vez de enviar gigabytes de arquivos para modelos gigantes em nuvem, o usuario
 
 ```
 slm-terminal-specialist/
-├── .env.example                 # Exemplo de configuracao de variaveis de ambiente
-├── .gitignore                   # Regras de exclusao do Git (pesos binarios e segredos)
-├── CONSTITUTION.md              # Documento normativo de governanca e fronteiras
-├── GEMINI.md                    # Diretrizes de estilo e regras do projeto
+├── .env.example                 # Variaveis de ambiente de exemplo
+├── .gitignore                   # Exclusoes do Git (pesos binarios, caches e segredos)
+├── CONSTITUTION.md              # Documento normativo de governanca e fronteiras operacionais
+├── GEMINI.md                    # Diretrizes de estilo, engenharia e proibicao de emojis
 ├── LICENSE                      # Licenca Apache 2.0
-├── Makefile                     # Atalhos de automacao para o ciclo de vida
+├── Makefile                     # Automacao completa do ciclo de vida do modelo
 ├── README.md                    # Documentacao tecnica principal
 ├── requirements.txt             # Dependencias Python
-├── upload_to_hf.py              # Utilitario para publicacao de pesos no Hugging Face
+├── upload_to_hf.py              # Utilitario para publicacao de pesos no Hugging Face Hub
 ├── dataset/
-│   ├── generator.py             # Gerador de dados sinteticos via Gemini API
-│   ├── validate_dataset.py      # Auditoria de integridade e qualidade do dataset
+│   ├── generator.py             # Gerador sintetico parametrizado com fallback de cota
+│   ├── validate_dataset.py      # Auditoria de integridade, emojis e distribuicao por SO
 │   └── data/
-│       ├── train.jsonl          # Split de treino (450 pares)
-│       └── valid.jsonl          # Split de validacao (50 pares)
+│       ├── train.jsonl          # Base de treino formatada em ChatML (1.081 registros)
+│       └── valid.jsonl          # Base de validacao (121 registros)
 ├── deploy/
-│   ├── Modelfile                # Configuracao de importacao no Ollama
-│   └── zsh_integration.zsh      # Funcao cmd() para o shell
-├── models/                      # Diretorio de modelos fundidos (ignorado no Git)
+│   ├── Modelfile                # Definicao do modelo para compilacao no Ollama
+│   ├── zsh_integration.zsh      # Integracao com auto-deteccao de SO para Zsh
+│   └── pwsh_integration.ps1     # Integracao nativa para Windows PowerShell
+├── benchmark/
+│   ├── engine.py                # Motor de inferencia local, sandbox /tmp e parser multi-shell
+│   ├── safety.py                # Filtros de seguranca contra comandos destrutivos
+│   ├── run.py                   # Executor oficial da suite de 45 cenarios Tri-OS
+│   ├── cases/                   # Casos de teste divididos por categoria tematica
+│   │   ├── test_tabular.py      # Casos de CSV, TSV, awk, cut e sort
+│   │   ├── test_files.py        # Casos de busca, regex e manipulacao de arquivos
+│   │   ├── test_devops.py       # Casos de processos, portas e Docker
+│   │   └── test_os_matrix.py    # Casos contrastivos macOS BSD, Linux GNU e PowerShell Nativo
+│   └── reports/
+│       └── latest_report.md     # Relatorio consolidado de metricas do benchmark
+├── models/                      # Diretorio de pesos fundidos (ignorado no Git)
 ├── adapters/                    # Checkpoints LoRA MLX (ignorado no Git)
 └── training/
-    └── config.yaml              # Hiperparametros de treino LoRA via MLX-LM
+    └── config.yaml              # Configuracao de hiperparametros de treino LoRA
 ```
 
 ---
 
-## 4. Guia de Uso Rapido (Para quem quer apenas USAR o modelo)
+## 4. Guia de Uso Rapido (Para Consumo do Modelo)
 
-Se o seu objetivo e apenas **utilizar o assistente no seu dia a dia** (sem treinar, sem gerar dados e sem precisar ativar ambientes virtuais Python):
+Se o seu objetivo e apenas **utilizar o assistente no seu terminal**:
 
-### Pre-requisito Unico
-Basta ter o **Ollama** instalado e em execucao no seu computador (macOS, Linux ou Windows):
-```bash
-# macOS
-brew install ollama
-
-# Linux
-curl -fsSL https://ollama.com/install.sh | sh
-```
-
-### Opcao A: Uso Direto pelo Terminal
-Voce pode invocar o modelo diretamente via Ollama apontando para o repositorio do Hugging Face. Na primeira vez, o Ollama baixa os pesos automaticamente e armazena localmente; nas vezes seguintes, roda 100% offline:
-
-```bash
-ollama run hf.co/VictorMr/slm-terminal-specialist "junte todos os csvs mantendo apenas o primeiro cabecalho"
-```
-
-*(Se voce ja realizou o deploy local com o nome `term-specialist`, basta rodar: `ollama run term-specialist "sua intencao"`)*
+### Pre-requisito
+Ter o **Ollama** instalado e em execucao:
+* **macOS:** `brew install ollama`
+* **Linux:** `curl -fsSL https://ollama.com/install.sh | sh`
+* **Windows:** Baixar o instalador oficial em [ollama.com/download](https://ollama.com/download)
 
 ---
 
-### Opcao B: Integracao Global com o Shell (`cmd "sua intencao"`)
-A forma mais produtiva e configurar uma funcao no seu arquivo de inicializacao do terminal. O comando sugerido aparecera **ja digitado no seu cursor**, pronto para voce conferir e teclar `[ENTER]`.
+### Integracao com o Shell (`cmd "sua intencao"`)
 
-#### 1. Para macOS (Terminal Zsh):
-Adicione ao final do seu arquivo `~/.zshrc`:
+#### 1. macOS e Linux (Zsh):
+Adicione a seguinte funcao ao seu `~/.zshrc`:
+
 ```bash
 cmd() {
     local prompt="$*"
@@ -111,13 +119,18 @@ cmd() {
         return 1
     fi
 
-    local model="term-specialist"
-    # Fallback para o Hub se nao estiver registrado localmente
-    if ! ollama list | grep -q "term-specialist"; then
-        model="hf.co/VictorMr/slm-terminal-specialist"
+    local os_tag="[Linux]"
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+        os_tag="[macOS]"
     fi
 
-    local suggestion=$(ollama run "$model" "$prompt" 2>/dev/null | head -n 1 | sed 's/^```bash//;s/^```zsh//;s/^```//;s/```$//')
+    local model="term-specialist-q4"
+    if ! ollama list | grep -q "term-specialist-q4"; then
+        model="term-specialist"
+    fi
+
+    local full_prompt="${os_tag} ${prompt}"
+    local suggestion=$(ollama run "$model" "$full_prompt" 2>/dev/null | head -n 1 | sed 's/^```[a-z]*//;s/^```//;s/```$//')
 
     if [[ -n "$suggestion" ]]; then
         echo ""
@@ -130,150 +143,172 @@ cmd() {
 }
 ```
 
-#### 2. Para Linux (Terminal Bash):
-Adicione ao seu `~/.bashrc`:
+Recarregue a sessao:
 ```bash
-cmd() {
-    local prompt="$*"
-    if [[ -z "$prompt" ]]; then
-        echo "Uso: cmd <o que voce deseja fazer em portugues>"
-        return 1
-    fi
+source ~/.zshrc
+```
 
-    local model="term-specialist"
-    if ! ollama list | grep -q "term-specialist"; then
-        model="hf.co/VictorMr/slm-terminal-specialist"
-    fi
+#### 2. Windows (PowerShell / pwsh):
+Adicione ao seu perfil do PowerShell (`$PROFILE`):
 
-    local suggestion=$(ollama run "$model" "$prompt" 2>/dev/null | head -n 1 | sed 's/^```bash//;s/^```//;s/```$//')
+```powershell
+function cmd {
+    param([Parameter(Mandatory=$true, ValueFromRemainingArguments=$true)][string[]]$PromptArgs)
+    $prompt = $PromptArgs -join " "
+    $fullPrompt = "[PowerShell] $prompt"
 
-    if [[ -n "$suggestion" ]]; then
-        echo -e "\n\033[1;32m[Sugestao]\033[0m $suggestion\n"
-        history -s "$suggestion"
-    else
-        echo "[AVISO] Nao foi possivel gerar um comando para essa intencao."
-    fi
+    $model = "term-specialist-q4"
+    $raw = ollama run $model $fullPrompt 2>$null
+    $clean = ($raw -split "`n")[0] -replace '^```[a-zA-Z]*','' -replace '```$',''
+    $clean = $clean.Trim()
+
+    if ($clean) {
+        Write-Host "`n[Sugestao] $clean`n" -ForegroundColor Green
+        Set-Clipboard -Value $clean
+        Write-Host "[OK] Comando copiado para a area de transferencia! Cole com Ctrl+V." -ForegroundColor Gray
+    } else {
+        Write-Host "[AVISO] Nao foi possivel gerar o comando." -ForegroundColor Yellow
+    }
 }
 ```
 
-Recarregue o shell:
-```bash
-source ~/.zshrc   # ou source ~/.bashrc
-```
-
-Agora, em **qualquer diretorio** da sua maquina, basta digitar:
-```zsh
-cmd "achar o processo que esta travando a porta 3000 e matar"
-```
-
 ---
 
-### Exemplos Praticos de Uso
+### Exemplos Praticos Multiplataforma
 
-| Entrada do Usuario (`cmd "..."`) | Comando Sugerido | Categoria |
+| Intencao do Usuario | Sistema Operacional | Comando Gerado pela SLM |
 | :--- | :--- | :--- |
-| `cmd "junte todos os csvs mantendo so o primeiro cabecalho"` | `awk 'FNR==1 && NR!=1 {next} 1' *.csv > consolidado.csv` | Filtros & Tabular |
-| `cmd "achar o processo que esta travando a porta 3000 e matar"` | `lsof -ti:3000 \| xargs kill -9` | DevOps / Processos |
-| `cmd "converter todos os webp da pasta para jpg"` | `for f in *.webp; do magick "$f" "${f%.webp}.jpg"; done` | Manipulacao de Midia |
-| `cmd "comprimir a pasta /var/log em tar.gz excluindo arquivos .tmp"` | `tar --exclude='*.tmp' -czvf logs.tar.gz /var/log` | Arquivos & Backup |
-| `cmd "extrair os status code e contar ocorrencias do access.log"` | `awk '{print $9}' access.log \| sort \| uniq -c \| sort -nr` | Processamento de Logs |
+| `cmd "substituir foo por bar no arquivo sem backup"` | **macOS** | `sed -i '' 's/foo/bar/g' arquivo.txt` |
+| `cmd "substituir foo por bar no arquivo sem backup"` | **Linux** | `sed -i 's/foo/bar/g' arquivo.txt` |
+| `cmd "juntar csvs mantendo apenas primeiro cabecalho"` | **macOS / Linux** | `awk 'FNR==1 && NR!=1 {next} 1' *.csv > final.csv` |
+| `cmd "extrair terceira coluna de arquivo separado por tab"` | **macOS / Linux** | `cut -f3 dados.tsv` |
+| `cmd "matar processo travando a porta 3000"` | **macOS / Linux** | `lsof -ti:3000 \| xargs kill -9` |
+| `cmd "listar processos consumindo mais memoria"` | **PowerShell** | `Get-Process \| Sort-Object WorkingSet -Descending \| Select-Object -First 10` |
+| `cmd "buscar erro ignorando maiusculas nos logs"` | **PowerShell** | `Select-String -Path *.log -Pattern "erro" -SimpleMatch` |
+| `cmd "baixar arquivo executavel de url"` | **PowerShell** | `Invoke-WebRequest -Uri "https://site.com/app.exe" -OutFile "app.exe"` |
 
 ---
 
-## 5. Guia para Desenvolvedores: Treinamento e Reproducao Completa
+## 5. Guia do Desenvolvedor: Pipeline Completo de Treinamento
 
-Se voce deseja **reproduzir o treinamento**, gerar novos pares de dados ou criar sua propria versao da SLM, siga as etapas abaixo.
+Siga este passo a passo caso deseje expandir a base de dados, retreinar o modelo ou executar os testes de benchmark.
 
-### 5.1. Pre-requisitos de Desenvolvimento
-* **Hardware:** Mac com Apple Silicon (M1/M2/M3/M4) com memoria unificada (minimo 8 GB, recomendado 16 GB+).
-* **Sistema Operacional:** macOS 14+ com terminal Zsh.
-* **Python:** Versao 3.10 ou superior.
-* **Chave de API:** Conta no Google AI Studio (para a etapa de geracao sintetica com Gemini).
-
-### 5.2. Instalacao do Ambiente
+### 5.1. Instalacao e Ativacao do Ambiente
 ```bash
 # 1. Clonar o repositorio
 git clone https://github.com/contatovictorhugos-hash/slm-terminal-specialist.git
 cd slm-terminal-specialist
 
-# 2. Criar e ativar o ambiente virtual
+# 2. Criar e ativar o ambiente virtual Python
 python3 -m venv .venv
 source .venv/bin/activate
 
 # 3. Instalar dependencias
-pip install -r requirements.txt
-# ou: make install
+make install
 
 # 4. Configurar variaveis de ambiente
 cp .env.example .env
 ```
-Edite o arquivo `.env`:
+
+Preencha no arquivo `.env`:
 ```env
 GEMINI_API_KEY=sua_chave_do_google_ai_studio
-HF_TOKEN=seu_token_do_huggingface_opcional
+HF_TOKEN=seu_token_huggingface_opcional
 ```
 
 ---
 
-### 5.3. Passo a Passo do Pipeline de Treinamento
+### 5.2. Ciclo de Vida via Makefile
 
-#### Passo 1: Auditoria e Validacao do Dataset
-Verifica se ha erros estruturais de JSON, duplicatas, presenca indevida de markdown ou violacoes de estilo:
+O `Makefile` concentra todos os comandos do pipeline:
+
+| Comando | Descricao |
+| :--- | :--- |
+| `make validate` | Executa a auditoria de integridade do dataset e distribuicao por SO |
+| `make generate` | Sintetiza novos registros (padrao: `OS=PowerShell ADD=150 DELAY=10`) |
+| `make train` | Executa o fine-tuning LoRA acelerado por GPU Metal via MLX-LM |
+| `make fuse` | Mescla os adaptadores LoRA ao modelo base gerando os pesos unificados |
+| `make deploy` | Quantiza em 4-bits (`q4_K_M`) e instancia os modelos no Ollama |
+| `make benchmark` | Executa os 45 cenarios em sandbox efemero e relatorio multi-shell |
+| `make clean` | Limpa caches Python e arquivos temporarios |
+
+---
+
+### 5.3. Detalhamento dos Passos
+
+#### Passo 1: Geracao Sintetica Parametrizada
+O gerador `dataset/generator.py` permite apontar a quantidade de registros, o sistema operacional e o intervalo de requisicao:
+
+```bash
+# Execucao padrao (adiciona 150 registros de PowerShell com delay de 10s):
+make generate
+
+# Execucao customizada via Makefile:
+make generate OS=Linux ADD=50 DELAY=8
+make generate OS=macOS ADD=100 DELAY=12
+
+# Execucao direta via CLI Python:
+python dataset/generator.py --add 150 --os PowerShell --delay 10
+```
+
+#### Passo 2: Validacao e Auditoria
+Verifica formato JSON, sequencia ChatML, ausencia de markdown indevido, ausencia de emojis e percentual por plataforma:
 ```bash
 make validate
-# ou: python dataset/validate_dataset.py
 ```
 
-#### Passo 2: Geracao Sintetica via Gemini (Destilacao de Conhecimento)
-O gerador `dataset/generator.py` envia prompts balanceados para o Gemini com validacao estrita via Pydantic e sistema de rotacao de contingencia entre 5 variantes de modelos:
-```bash
-make generate
-# ou: python dataset/generator.py --total 500 --batch-size 25
-```
-
-#### Passo 3: Fine-Tuning LoRA com MLX-LM
-O treinamento e executado diretamente na memoria unificada da GPU do Apple Silicon:
+#### Passo 3: Fine-Tuning LoRA (MLX-LM no Apple Silicon)
+Ajusta os pesos unicamente nos tokens do assistente (`mask_prompt: true`):
 ```bash
 make train
-# ou: python -m mlx_lm.lora --config training/config.yaml
 ```
-
-Parametros configurados em `training/config.yaml`:
+Configuracao padrao (`training/config.yaml`):
 * **Modelo Base:** `Qwen/Qwen2.5-Coder-1.5B-Instruct`
-* **Iteracoes de Treino:** 600
-* **Batch Size:** 4
-* **Learning Rate:** 1.0e-4
-* **Camadas LoRA:** 16
-* **Mask Prompt:** `true` (otimiza a perda unicamente na resposta do comando)
-* **Destino dos Adaptadores:** `adapters/`
+* **Iteracoes:** `1000`
+* **Batch Size:** `4`
+* **Learning Rate:** `1.0e-4`
+* **Camadas LoRA:** `16`
 
-#### Passo 4: Fusao dos Adaptadores LoRA
-Funde os pesos dos adaptadores ao modelo base gerando os arquivos unificados em `safetensors`:
+#### Passo 4: Fusao dos Adaptadores
+Consolida os adaptadores treinados ao modelo original em formato `safetensors`:
 ```bash
 make fuse
-# ou: python -m mlx_lm.fuse --model Qwen/Qwen2.5-Coder-1.5B-Instruct --adapter-path adapters --save-path models/fused-qwen-terminal
 ```
 
-#### Passo 5: Registro Local no Ollama via Modelfile
-Cria o modelo local `term-specialist` no daemon do Ollama com template ChatML e stop tokens definidos:
+#### Passo 5: Quantizacao Q4_K_M e Deploy no Ollama
+Compila o modelo local aplicando quantizacao simétrica de 4 bits:
 ```bash
 make deploy
-# ou: ollama create term-specialist -f deploy/Modelfile
 ```
+* **Otimizacao de Memoria:** Reducao de 2.9 GB para **986 MB** (mais de 66% de reducao de pegada de memoria), viabilizando execucao com latencia inferior a 50ms em maquinas com 8 GB de RAM.
 
-#### Passo 6: Publicacao dos Pesos no Hugging Face (Opcional)
-Para enviar o modelo fundido para o seu perfil no Hugging Face:
+#### Passo 6: Execucao da Suite Oficial de Benchmark Tri-OS
+Avalia o modelo em tempo real contra 45 casos de teste equilibrados entre macOS (BSD), Linux (GNU) e Windows (PowerShell nativo):
 ```bash
-python upload_to_hf.py --repo-id SEU_USUARIO/slm-terminal-specialist
+make benchmark
 ```
+O benchmark valida 4 camadas de inspecao:
+1. **Seguranca Preventiva:** Bloqueio e prevencao de comandos destrutivos perigosos sem sandbox (`rm -rf *`, `mkfs`, exclusao de raiz no PowerShell).
+2. **Formato Estrito (Zero Markdown):** 100% de comandos puros sem cercas markdown ou texto conversacional.
+3. **Validade Sintatica Multi-Shell:** Checagem rigorosa via `zsh -n` para Unix e analisador sintatico/semantico estruturado para PowerShell.
+4. **Assercao Funcional de Estado em Sandbox:** Execucao real em diretorios efemeros `/tmp` e verificacao deterministica dos efeitos colaterais.
+
+**Resultado Consolidado:**
+* **Acuracia Global:** **97.8%** (44/45 casos aprovados)
+* **Linux GNU:** 100.0% (3/3)
+* **PowerShell Nativo:** 100.0% (5/5)
+* **PowerShell ➔ POSIX:** 100.0% (3/3)
+* **macOS BSD:** 97.3% (36/37)
+* **Latencia Media:** 174.8 ms (~93.7 tokens/s)
+* **Relatorio Completo:** Gravado automaticamente em `benchmark/reports/latest_report.md`.
 
 ---
 
 ## 6. Governanca e Constituicao
 
-O projeto segue rigorosamente os limites e principios estipulados no arquivo [CONSTITUTION.md](CONSTITUTION.md):
-* **Fronteira Operacional:** O modelo nao analisa o conteudo semantico de arquivos (nao interpreta contratos nem resume textos). Ele e um especialista em sintaxe CLI.
-* **Padrao Textual Limpo:** Conforme [GEMINI.md](GEMINI.md), todos os codigos e documentacoes sao estritamente desprovidos de emojis, mantendo padrao formal de engenharia.
+O projeto segue as diretrizes estabelecidas no arquivo [CONSTITUTION.md](CONSTITUTION.md) e [GEMINI.md](GEMINI.md):
+* **Fronteira Operacional:** O modelo e estritamente um compilador de sintaxe CLI. Ele nao interpreta conteudo semantico de documentos nem atua como assistente conversacional generico.
+* **Padrao Textual Limpo:** E terminantemente proibido o uso de emojis em arquivos de codigo, strings de log, comentarios e documentos Markdown do projeto.
 
 ---
 

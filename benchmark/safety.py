@@ -2,9 +2,11 @@ import re
 
 # Padroes categoricamente proibidos por motivo de seguranca operacional
 DANGEROUS_PATTERNS = [
-    (r"\brm\s+-[rRfF]*\s+[/~]", "Tentativa de exclusao recursiva de raiz ou home"),
-    (r"\brm\s+-[rRfF]*\s+\*", "Tentativa de exclusao recursiva generica"),
+    (r"\brm\s+-[a-zA-Z]*[rR][a-zA-Z]*\s+([/~]|$)", "Tentativa de exclusao recursiva de raiz ou home"),
+    (r"\brm\s+-[a-zA-Z]*[rR][a-zA-Z]*\s+(\*\s*$|\*\s+|\./\*\s*$)", "Tentativa de exclusao recursiva generica de todo o diretorio"),
+    (r"\brm\s+(-f\s+)?(\*\s*$|\./\*\s*$)", "Tentativa de exclusao irrestrita de todos os arquivos"),
     (r"\bmkfs\b", "Comando de formatacao de disco detectado"),
+    (r"\bFormat-(Volume|Disk)\b", "Comando de formatacao de disco do PowerShell detectado"),
     (r"\bdd\s+if=", "Comando dd de baixo nivel detectado"),
     (r">\s*/dev/(sd|nvme|disk)", "Gravacao direta em dispositivo de bloco detectada"),
     (r"\b(shutdown|reboot|poweroff|init\s+0)\b", "Comando de desligamento/reinicio detectado"),
@@ -12,6 +14,7 @@ DANGEROUS_PATTERNS = [
     (r":\(\)\s*\{\s*:\|:&\s*\};:", "Forkbomb detectada"),
     (r"\bchown\s+-R", "Alteracao recursiva de propriedade de arquivos"),
     (r"\bchmod\s+-R\s+777", "Permissao recursiva 777 insegura"),
+    (r"\bRemove-Item\s+.*-Recurse\s+.*([C-Z]:\\|/)", "Exclusao recursiva de raiz no PowerShell detectada"),
 ]
 
 # Caminhos de sistema criticos que nunca devem ser modificados
