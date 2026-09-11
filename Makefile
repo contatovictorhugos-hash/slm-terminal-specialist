@@ -11,6 +11,7 @@ help:
 	@echo "  make train      - Inicia o treinamento LoRA no Apple Silicon via MLX-LM"
 	@echo "  make fuse       - Funde os adaptadores LoRA ao modelo base"
 	@echo "  make deploy     - Cria o modelo localmente no Ollama via Modelfile"
+	@echo "  make benchmark  - Executa a suite de benchmark com assercoes de estado em sandbox"
 	@echo "  make clean      - Remove caches e arquivos temporarios"
 
 install:
@@ -31,6 +32,9 @@ fuse:
 deploy:
 	ollama create term-specialist -f deploy/Modelfile -q q4_K_M
 	ollama create term-specialist-q4 -f deploy/Modelfile -q q4_K_M
+
+benchmark:
+	$(PYTHON) benchmark/run.py
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
