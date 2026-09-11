@@ -8,8 +8,12 @@ cmd() {
         return 1
     fi
 
-    # Chama a SLM local via Ollama
-    local suggestion=$(ollama run term-specialist "$prompt" 2>/dev/null | head -n 1 | sed 's/^```bash//;s/^```zsh//;s/^```//;s/```$//')
+    local model="term-specialist-q4"
+    if ! ollama list 2>/dev/null | grep -q "term-specialist-q4"; then
+        model="term-specialist"
+    fi
+
+    local suggestion=$(ollama run "$model" "$prompt" 2>/dev/null | head -n 1 | sed 's/^```bash//;s/^```zsh//;s/^```//;s/```$//')
 
     if [[ -n "$suggestion" ]]; then
         echo ""

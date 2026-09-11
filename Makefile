@@ -29,7 +29,8 @@ fuse:
 	$(PYTHON) -m mlx_lm.fuse --model Qwen/Qwen2.5-Coder-1.5B-Instruct --adapter-path adapters --save-path models/fused-qwen-terminal
 
 deploy:
-	ollama create term-specialist -f deploy/Modelfile
+	ollama create term-specialist -f deploy/Modelfile -q q4_K_M
+	ollama create term-specialist-q4 -f deploy/Modelfile -q q4_K_M
 
 clean:
 	find . -type d -name "__pycache__" -exec rm -rf {} +
