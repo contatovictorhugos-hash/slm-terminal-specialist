@@ -1,4 +1,4 @@
-.PHONY: help install validate generate train fuse deploy clean
+.PHONY: help install validate generate train fuse deploy benchmark clean
 
 PYTHON ?= .venv/bin/python
 PIP ?= .venv/bin/pip
